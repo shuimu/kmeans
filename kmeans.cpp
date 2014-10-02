@@ -16,6 +16,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <climits>
+#include <string>
 
 using namespace std;
 
@@ -31,6 +32,7 @@ vector< double > sigmas;
 vector< double > low_bounds;
 vector< double > up_bounds;
 vector< int > labels;
+vector< char* > instances;  
 
 void init_alldata(){
     srand(time(0));
@@ -67,26 +69,28 @@ char** split(const char * string, char delim, int * count) {
     return str_array;
 }
 
-void load_data(){
+int load_data(){
+    int sz;
     FILE * fp;
     if((fp = fopen(input_file, "r")) == NULL) {
         fprintf(stderr, "data file is not valid\n");
-        return ;
+        return -1;
     }
     char buffer[LINE_LEN];
     char ** str_array = NULL;
     N = 0;
     while(fgets(buffer, LINE_LEN, fp) != NULL){
         vector<double> point_x;
-        double tmp;
-        str_array = split(buffer,'\t',&M);
-        for(int j = 0; j < M; j++) {
+        str_array = split(buffer,'\t',&sz);
+        M = sz - 1;
+        instances.push_back(str_array[0]);  
+        for(int j = 1; j < sz; j++) {
             point_x.push_back(atof(str_array[j]));
         }
         points.push_back(point_x);
         N++;
     }
-    cout << "... M=" << M << ", N=" << N << endl;
+    return 0;
 }
 
 void normalize_data(){
@@ -164,15 +168,21 @@ void output_classifier(){
 }
 
 void output_pointclass(){
+    FILE * ofp;
+    ofp = fopen(output_dir, "w");
+    if (ofp == NULL) {
+        fprintf(stderr, "ERROR: Can't open output file %s!\n", output_dir);
+        return ;
+    }
     for(int i = 0; i < N; i++) {
-        printf("%d\t%d\n", i, labels[i]);
+        fprintf(ofp, "%s\t%d\n", instances[i], labels[i]+1);
     }
 }
 
 int command_line_parse(int argc, char * argv[]) {
     int i = 0;
-    if((argc & 1) == 0) {
-        fprintf(stderr, "command line not well formatted\n");
+    if(argc != 9) {
+        fprintf(stderr, "ERROR: command line not well formatted\n");
         return -1;
     }
     while(i < argc) {
@@ -191,7 +201,7 @@ int command_line_parse(int argc, char * argv[]) {
  **/
 void print_help() {
     fprintf(stderr, "\n     Kmeans Command Usage:   \n\n");
-    fprintf(stderr, "       ./kmeans -k <int> -n <int> -i <string> -o <string>: \n\n");
+    fprintf(stderr, "       ./kmeans -k <int> -n <int> -i <string> -o <string> \n\n");
     fprintf(stderr, "       -k  cluster number              \n");
     fprintf(stderr, "       -n  max iterators               \n");
     fprintf(stderr, "       -i  input data file             \n");
@@ -203,7 +213,7 @@ void print_help() {
  **/
 int main(int argc, char * argv[]) {
     if(command_line_parse(argc, argv) != 0) { print_help(); return -1; }
-    load_data();
+    if(load_data() != 0) { print_help(); return -1; }
     init_alldata();
     normalize_data();
     init_centroid();
@@ -211,9 +221,7 @@ int main(int argc, char * argv[]) {
         classify();
         update_centroid();
     }
-    //output_classifier();
     output_pointclass();
     return 0;
 }
-
 /* vim: set expandtab ts=4 sw=4 sts=4 tw=100: */
